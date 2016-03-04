@@ -1124,53 +1124,6 @@ cms_profile_getattr_chromaticity(CmsProfileObject* self, void* closure)
     return _profile_read_ciexyz(self, cmsSigChromaticityTag, 0);
 }
 
-static PyObject*
-cms_profile_getattr_red_primary(CmsProfileObject* self, void* closure)
-{
-    cmsBool result = 0;
-    cmsCIEXYZTRIPLE primaries;
-
-    if (cmsIsMatrixShaper(self->profile))
-        result = _calculate_rgb_primaries(self, &primaries);
-    if (! result) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-
-    return _xyz_py(&primaries.Red);
-}
-
-static PyObject*
-cms_profile_getattr_green_primary(CmsProfileObject* self, void* closure)
-{
-    cmsBool result = 0;
-    cmsCIEXYZTRIPLE primaries;
-
-    if (cmsIsMatrixShaper(self->profile))
-        result = _calculate_rgb_primaries(self, &primaries);
-    if (! result) {
-        Py_INCREF(Py_None);
-	return Py_None;
-    }
-
-    return _xyz_py(&primaries.Green);
-}
-
-static PyObject*
-cms_profile_getattr_blue_primary(CmsProfileObject* self, void* closure)
-{
-    cmsBool result = 0;
-    cmsCIEXYZTRIPLE primaries;
-
-    if (cmsIsMatrixShaper(self->profile))
-        result = _calculate_rgb_primaries(self, &primaries);
-    if (! result) {
-        Py_INCREF(Py_None);
-	return Py_None;
-    }
-
-    return _xyz_py(&primaries.Blue);
-}
 
 static PyObject*
 cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
@@ -1318,9 +1271,6 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "red_colorant",       (getter) cms_profile_getattr_red_colorant },
     { "green_colorant",     (getter) cms_profile_getattr_green_colorant },
     { "blue_colorant",      (getter) cms_profile_getattr_blue_colorant },
-    { "red_primary",        (getter) cms_profile_getattr_red_primary },
-    { "green_primary",      (getter) cms_profile_getattr_green_primary },
-    { "blue_primary",       (getter) cms_profile_getattr_blue_primary },
     { "media_white_point_temperature", (getter) cms_profile_getattr_media_white_point_temperature },
     { "media_white_point",  (getter) cms_profile_getattr_media_white_point },
     { "media_black_point",  (getter) cms_profile_getattr_media_black_point },
