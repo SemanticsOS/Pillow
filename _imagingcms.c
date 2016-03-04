@@ -529,26 +529,6 @@ cms_get_display_profile_win32(PyObject* self, PyObject* args)
 /* Helper functions.  */
 
 static PyObject*
-_profile_read_int_as_string(cmsUInt32Number nr)
-{
-    PyObject* ret;
-    char buf[5];
-    buf[0] = (char) ((nr >> 24) & 0xff);
-    buf[1] = (char) ((nr >> 16) & 0xff);
-    buf[2] = (char) ((nr >> 8) & 0xff);
-    buf[3] = (char) (nr & 0xff);
-    buf[4] = 0;
-
-#if PY_VERSION_HEX >= 0x03000000
-    ret = PyUnicode_DecodeASCII(buf, 4, NULL);
-#else
-    ret = PyString_FromStringAndSize(buf, 4);
-#endif
-    return ret;
-}
-
-
-static PyObject*
 _profile_read_mlu(CmsProfileObject* self, cmsTagSignature info)
 {
     PyObject *uni;
@@ -591,6 +571,27 @@ _profile_read_mlu(CmsProfileObject* self, cmsTagSignature info)
     return uni;
 }
 
+
+static PyObject*
+_profile_read_int_as_string(cmsUInt32Number nr)
+{
+    PyObject* ret;
+    char buf[5];
+    buf[0] = (char) ((nr >> 24) & 0xff);
+    buf[1] = (char) ((nr >> 16) & 0xff);
+    buf[2] = (char) ((nr >> 8) & 0xff);
+    buf[3] = (char) (nr & 0xff);
+    buf[4] = 0;
+
+#if PY_VERSION_HEX >= 0x03000000
+    ret = PyUnicode_DecodeASCII(buf, 4, NULL);
+#else
+    ret = PyString_FromStringAndSize(buf, 4);
+#endif
+    return ret;
+}
+
+
 static PyObject*
 _profile_read_signature(CmsProfileObject* self, cmsTagSignature info)
 {
@@ -610,6 +611,52 @@ _profile_read_signature(CmsProfileObject* self, cmsTagSignature info)
     return _profile_read_int_as_string(*sig);
 }
 
+
+static PyObject*
+_xyz_py(cmsCIEXYZ* XYZ)
+{
+    cmsCIExyY xyY;
+    cmsXYZ2xyY(&xyY, XYZ);
+    return Py_BuildValue("((d,d,d),(d,d,d))", XYZ->X, XYZ->Y, XYZ->Z, xyY.x, xyY.y, xyY.Y);
+}
+
+static PyObject*
+_xyz3_py(cmsCIEXYZ* XYZ)
+{
+    cmsCIExyY xyY[3];
+    cmsXYZ2xyY(&xyY[0], &XYZ[0]);
+    cmsXYZ2xyY(&xyY[1], &XYZ[1]);
+    cmsXYZ2xyY(&xyY[2], &XYZ[2]);
+
+    return Py_BuildValue("(((d,d,d),(d,d,d),(d,d,d)),((d,d,d),(d,d,d),(d,d,d)))",
+			 XYZ[0].X, XYZ[0].Y, XYZ[0].Z,
+			 XYZ[1].X, XYZ[1].Y, XYZ[1].Z,
+			 XYZ[2].X, XYZ[2].Y, XYZ[2].Z,
+			 xyY[0].x, xyY[0].y, xyY[0].Y,
+			 xyY[1].x, xyY[1].y, xyY[1].Y,
+			 xyY[2].x, xyY[2].y, xyY[2].Y);
+}
+
+static PyObject*
+_profile_read_ciexyz(CmsProfileObject* self, cmsTagSignature info, int multi)
+{
+    cmsCIEXYZ* XYZ;
+
+    if (!cmsIsTag(self->profile, info)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    XYZ = (cmsCIEXYZ*) cmsReadTag(self->profile, info);
+    if (!XYZ) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    if (multi)
+        return _xyz3_py(XYZ);
+    else
+        return _xyz_py(XYZ);
+}
 
 /* -------------------------------------------------------------------- */
 /* Python interface setup */
@@ -868,6 +915,38 @@ cms_profile_getattr_saturation_rendering_intent_gamut(CmsProfileObject* self, vo
     return _profile_read_signature(self, cmsSigSaturationRenderingIntentGamutTag);
 }
 
+static PyObject*
+cms_profile_getattr_red_colorant(CmsProfileObject* self, void* closure)
+{
+    if (!cmsIsMatrixShaper(self->profile)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    return _profile_read_ciexyz(self, cmsSigRedColorantTag, 0);
+}
+
+
+static PyObject*
+cms_profile_getattr_green_colorant(CmsProfileObject* self, void* closure)
+{
+    if (!cmsIsMatrixShaper(self->profile)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    return _profile_read_ciexyz(self, cmsSigGreenColorantTag, 0);
+}
+
+
+static PyObject*
+cms_profile_getattr_blue_colorant(CmsProfileObject* self, void* closure)
+{
+    if (!cmsIsMatrixShaper(self->profile)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    return _profile_read_ciexyz(self, cmsSigBlueColorantTag, 0);
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -903,6 +982,9 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "colorimetric_intent", (getter) cms_profile_getattr_colorimetric_intent },
     { "perceptual_rendering_intent_gamut", (getter) cms_profile_getattr_perceptual_rendering_intent_gamut },
     { "saturation_rendering_intent_gamut", (getter) cms_profile_getattr_saturation_rendering_intent_gamut },
+    { "red_colorant",       (getter) cms_profile_getattr_red_colorant },
+    { "green_colorant",     (getter) cms_profile_getattr_green_colorant },
+    { "blue_colorant",      (getter) cms_profile_getattr_blue_colorant },
 
     { NULL }
 };
