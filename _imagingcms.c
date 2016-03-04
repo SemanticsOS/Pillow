@@ -522,6 +522,53 @@ cms_get_display_profile_win32(PyObject* self, PyObject* args)
 #endif
 
 /* -------------------------------------------------------------------- */
+/* Helper functions.  */
+
+static PyObject*
+_profile_read_mlu(CmsProfileObject* self, cmsTagSignature info)
+{
+    PyObject *uni;
+    char *lc = "en";
+    char *cc = cmsNoCountry;
+    cmsMLU *mlu;
+    cmsUInt32Number len;
+    wchar_t *buf;
+
+    if (!cmsIsTag(self->profile, info)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    mlu = cmsReadTag(self->profile, info);
+    if (!mlu) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    len = cmsMLUgetWide(mlu, lc, cc, NULL, 0);
+    if (len == 0) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    buf = malloc(len);
+    if (!buf) {
+        PyErr_SetString(PyExc_IOError, "Out of Memory");
+        return NULL;
+    }
+    /* Just in case the next call fails.  */
+    buf[0] = '\0';
+
+    cmsMLUgetWide(mlu, lc, cc, buf, len);
+    // buf contains additional junk after \0
+    uni = PyUnicode_FromWideChar(buf, wcslen(buf));
+    free(buf);
+
+    return uni;
+}
+
+
+/* -------------------------------------------------------------------- */
 /* Python interface setup */
 
 static PyMethodDef pyCMSdll_methods[] = {
@@ -621,6 +668,49 @@ cms_profile_getattr_color_space(CmsProfileObject* self, void* closure)
     return PyUnicode_DecodeFSDefault(findICmode(cmsGetColorSpace(self->profile)));
 }
 
+/* New-style unicode interfaces.  */
+static PyObject*
+cms_profile_getattr_copyright(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_mlu(self, cmsSigCopyrightTag);
+}
+
+static PyObject*
+cms_profile_getattr_target(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_mlu(self, cmsSigCharTargetTag);
+}
+
+static PyObject*
+cms_profile_getattr_manufacturer(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_mlu(self, cmsSigDeviceMfgDescTag);
+}
+
+static PyObject*
+cms_profile_getattr_model(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_mlu(self, cmsSigDeviceModelDescTag);
+}
+
+static PyObject*
+cms_profile_getattr_profile_description(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_mlu(self, cmsSigProfileDescriptionTag);
+}
+
+static PyObject*
+cms_profile_getattr_screening_description(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_mlu(self, cmsSigScreeningDescTag);
+}
+
+static PyObject*
+cms_profile_getattr_viewing_condition(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_mlu(self, cmsSigViewingCondDescTag);
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -633,6 +723,15 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
 
     /* New style interfaces.  */
     { "rendering_intent",   (getter) cms_profile_getattr_rendering_intent },
+
+    { "copyright",          (getter) cms_profile_getattr_copyright },
+    { "target",             (getter) cms_profile_getattr_target },
+    { "manufacturer",       (getter) cms_profile_getattr_manufacturer },
+    { "model",              (getter) cms_profile_getattr_model },
+    { "profile_description", (getter) cms_profile_getattr_profile_description },
+    { "screening_description", (getter) cms_profile_getattr_screening_description },
+    { "viewing_condition",  (getter) cms_profile_getattr_viewing_condition },
+
 
     { NULL }
 };
