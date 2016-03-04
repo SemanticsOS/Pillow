@@ -628,9 +628,12 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_manufacturer", (getter) cms_profile_getattr_product_manufacturer },
     { "product_model",      (getter) cms_profile_getattr_product_model },
     { "product_copyright",  (getter) cms_profile_getattr_product_copyright },
-    { "rendering_intent",   (getter) cms_profile_getattr_rendering_intent },
     { "pcs",                (getter) cms_profile_getattr_pcs },
     { "color_space",        (getter) cms_profile_getattr_color_space },
+
+    /* New style interfaces.  */
+    { "rendering_intent",   (getter) cms_profile_getattr_rendering_intent },
+
     { NULL }
 };
 
@@ -768,4 +771,3 @@ init_imagingcms(void)
     setup_module(m);
 }
 #endif
-
