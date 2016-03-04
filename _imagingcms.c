@@ -658,6 +658,47 @@ _profile_read_ciexyz(CmsProfileObject* self, cmsTagSignature info, int multi)
         return _xyz_py(XYZ);
 }
 
+static PyObject*
+_profile_read_named_color_list(CmsProfileObject* self, cmsTagSignature info)
+{
+    cmsNAMEDCOLORLIST* ncl;
+    int i, n;
+    char name[cmsMAX_PATH];
+    PyObject* result;
+
+    if (!cmsIsTag(self->profile, info)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    ncl = (cmsNAMEDCOLORLIST*) cmsReadTag(self->profile, info);
+    if (ncl == NULL) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    n = cmsNamedColorCount(ncl);
+    result = PyList_New(n);
+    if (!result) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    for (i = 0; i < n; i++) {
+        PyObject* str;
+        cmsNamedColorInfo(ncl, i, name, NULL, NULL, NULL, NULL);
+	str = PyString_FromString(name);
+	if (str == NULL) {
+ 	    Py_DECREF(result);
+	    Py_INCREF(Py_None);
+	    return Py_None;
+	}
+        PyList_SET_ITEM(result, i, str);
+    }
+
+    return result;
+}
+
 /* -------------------------------------------------------------------- */
 /* Python interface setup */
 
@@ -947,6 +988,18 @@ cms_profile_getattr_blue_colorant(CmsProfileObject* self, void* closure)
     return _profile_read_ciexyz(self, cmsSigBlueColorantTag, 0);
 }
 
+static PyObject*
+cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_named_color_list(self, cmsSigColorantTableTag);
+}
+
+static PyObject*
+cms_profile_getattr_colorant_table_out(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_named_color_list(self, cmsSigColorantTableOutTag);
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -985,6 +1038,8 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "red_colorant",       (getter) cms_profile_getattr_red_colorant },
     { "green_colorant",     (getter) cms_profile_getattr_green_colorant },
     { "blue_colorant",      (getter) cms_profile_getattr_blue_colorant },
+    { "colorant_table",     (getter) cms_profile_getattr_colorant_table },
+    { "colorant_table_out", (getter) cms_profile_getattr_colorant_table_out },
 
     { NULL }
 };
