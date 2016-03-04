@@ -591,6 +591,25 @@ _profile_read_mlu(CmsProfileObject* self, cmsTagSignature info)
     return uni;
 }
 
+static PyObject*
+_profile_read_signature(CmsProfileObject* self, cmsTagSignature info)
+{
+    unsigned int *sig;
+
+    if (!cmsIsTag(self->profile, info)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    sig = (unsigned int *) cmsReadTag(self->profile, info);
+    if (!sig) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return _profile_read_int_as_string(*sig);
+}
+
 
 /* -------------------------------------------------------------------- */
 /* Python interface setup */
@@ -811,6 +830,44 @@ cms_profile_getattr_xcolor_space(CmsProfileObject* self, void* closure)
     return _profile_read_int_as_string(cmsGetColorSpace(self->profile));
 }
 
+static PyObject*
+cms_profile_getattr_profile_id(CmsProfileObject* self, void* closure)
+{
+    cmsUInt8Number id[16];
+    cmsGetHeaderProfileID(self->profile, id);
+    return PyBytes_FromStringAndSize((char *) id, 16);
+}
+
+static PyObject*
+cms_profile_getattr_is_matrix_shaper(CmsProfileObject* self, void* closure)
+{
+    return PyBool_FromLong((long) cmsIsMatrixShaper(self->profile));
+}
+
+static PyObject*
+cms_profile_getattr_technology(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_signature(self, cmsSigTechnologyTag);
+}
+
+static PyObject*
+cms_profile_getattr_colorimetric_intent(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_signature(self, cmsSigColorimetricIntentImageStateTag);
+}
+
+static PyObject*
+cms_profile_getattr_perceptual_rendering_intent_gamut(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_signature(self, cmsSigPerceptualRenderingIntentGamutTag);
+}
+
+static PyObject*
+cms_profile_getattr_saturation_rendering_intent_gamut(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_signature(self, cmsSigSaturationRenderingIntentGamutTag);
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -840,6 +897,12 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "device_class",       (getter) cms_profile_getattr_device_class },
     { "connection_space",   (getter) cms_profile_getattr_connection_space },
     { "xcolor_space",       (getter) cms_profile_getattr_xcolor_space },
+    { "profile_id",         (getter) cms_profile_getattr_profile_id },
+    { "is_matrix_shaper",   (getter) cms_profile_getattr_is_matrix_shaper },
+    { "technology",         (getter) cms_profile_getattr_technology },
+    { "colorimetric_intent", (getter) cms_profile_getattr_colorimetric_intent },
+    { "perceptual_rendering_intent_gamut", (getter) cms_profile_getattr_perceptual_rendering_intent_gamut },
+    { "saturation_rendering_intent_gamut", (getter) cms_profile_getattr_saturation_rendering_intent_gamut },
 
     { NULL }
 };
