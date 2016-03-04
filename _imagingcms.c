@@ -686,8 +686,8 @@ _profile_read_named_color_list(CmsProfileObject* self, cmsTagSignature info)
 
     for (i = 0; i < n; i++) {
         PyObject* str;
-	//cmsNamedColorInfo(ncl, i, name, NULL, NULL, NULL, NULL);
-	str = PyString_FromString(name);
+        cmsNamedColorInfo(ncl, i, name, NULL, NULL, NULL, NULL);
+	str = PyUnicode_FromString(name);
 	if (str == NULL) {
  	    Py_DECREF(result);
 	    Py_INCREF(Py_None);
@@ -998,9 +998,7 @@ cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
 static PyObject*
 cms_profile_getattr_colorant_table_out(CmsProfileObject* self, void* closure)
 {
-        Py_INCREF(Py_None);
-        return Py_None;
-	//    return _profile_read_named_color_list(self, cmsSigColorantTableOutTag);
+  return _profile_read_named_color_list(self, cmsSigColorantTableOutTag);
 }
 
 /* FIXME: add more properties (creation_datetime etc) */
