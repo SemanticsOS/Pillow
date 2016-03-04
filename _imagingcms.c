@@ -731,6 +731,34 @@ cms_profile_getattr_creation_date(CmsProfileObject* self, void* closure)
 				      ct.tm_hour, ct.tm_min, ct.tm_sec, 0);
 }
 
+static PyObject*
+cms_profile_getattr_version(CmsProfileObject* self, void* closure)
+{
+    cmsFloat64Number version = cmsGetProfileVersion(self->profile);
+    return PyFloat_FromDouble(version);
+}
+
+static PyObject*
+cms_profile_getattr_icc_version(CmsProfileObject* self, void* closure)
+{
+    return PyInt_FromLong((long) cmsGetEncodedICCversion(self->profile));
+}
+
+static PyObject*
+cms_profile_getattr_attributes(CmsProfileObject* self, void* closure)
+{
+    cmsUInt64Number attr;
+    cmsGetHeaderAttributes(self->profile, &attr);
+    return PyInt_FromLong((long) attr);
+}
+
+static PyObject*
+cms_profile_getattr_header_flags(CmsProfileObject* self, void* closure)
+{
+    cmsUInt32Number flags = cmsGetHeaderFlags(self->profile);
+    return PyInt_FromLong(flags);
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -751,6 +779,10 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "profile_description", (getter) cms_profile_getattr_profile_description },
     { "screening_description", (getter) cms_profile_getattr_screening_description },
     { "viewing_condition",  (getter) cms_profile_getattr_viewing_condition },
+    { "version",            (getter) cms_profile_getattr_version },
+    { "icc_version",        (getter) cms_profile_getattr_icc_version },
+    { "attributes",         (getter) cms_profile_getattr_attributes },
+    { "header_flags",       (getter) cms_profile_getattr_header_flags },
 
 
     { NULL }
