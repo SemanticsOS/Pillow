@@ -529,6 +529,26 @@ cms_get_display_profile_win32(PyObject* self, PyObject* args)
 /* Helper functions.  */
 
 static PyObject*
+_profile_read_int_as_string(cmsUInt32Number nr)
+{
+    PyObject* ret;
+    char buf[5];
+    buf[0] = (char) ((nr >> 24) & 0xff);
+    buf[1] = (char) ((nr >> 16) & 0xff);
+    buf[2] = (char) ((nr >> 8) & 0xff);
+    buf[3] = (char) (nr & 0xff);
+    buf[4] = 0;
+
+#if PY_VERSION_HEX >= 0x03000000
+    ret = PyUnicode_DecodeASCII(buf, 4, NULL);
+#else
+    ret = PyString_FromStringAndSize(buf, 4);
+#endif
+    return ret;
+}
+
+
+static PyObject*
 _profile_read_mlu(CmsProfileObject* self, cmsTagSignature info)
 {
     PyObject *uni;
@@ -759,6 +779,38 @@ cms_profile_getattr_header_flags(CmsProfileObject* self, void* closure)
     return PyInt_FromLong(flags);
 }
 
+static PyObject*
+cms_profile_getattr_header_manufacturer(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_int_as_string(cmsGetHeaderManufacturer(self->profile));
+}
+
+static PyObject*
+cms_profile_getattr_header_model(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_int_as_string(cmsGetHeaderModel(self->profile));
+}
+
+static PyObject*
+cms_profile_getattr_device_class(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_int_as_string(cmsGetDeviceClass(self->profile));
+}
+
+/* Duplicate of pcs, but uninterpreted.  */
+static PyObject*
+cms_profile_getattr_connection_space(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_int_as_string(cmsGetPCS(self->profile));
+}
+
+/* Duplicate of color_space, but uninterpreted.  */
+static PyObject*
+cms_profile_getattr_xcolor_space(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_int_as_string(cmsGetColorSpace(self->profile));
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -783,7 +835,11 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "icc_version",        (getter) cms_profile_getattr_icc_version },
     { "attributes",         (getter) cms_profile_getattr_attributes },
     { "header_flags",       (getter) cms_profile_getattr_header_flags },
-
+    { "header_manufacturer", (getter) cms_profile_getattr_header_manufacturer },
+    { "header_model",       (getter) cms_profile_getattr_header_model },
+    { "device_class",       (getter) cms_profile_getattr_device_class },
+    { "connection_space",   (getter) cms_profile_getattr_connection_space },
+    { "xcolor_space",       (getter) cms_profile_getattr_xcolor_space },
 
     { NULL }
 };
