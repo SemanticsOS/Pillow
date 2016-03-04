@@ -701,7 +701,7 @@ _profile_read_named_color_list(CmsProfileObject* self, cmsTagSignature info)
 
 static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE* result)
 {
-    double input[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+  /* double input[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }; */
     cmsHPROFILE hXYZ;
     cmsHTRANSFORM hTransform;
 
@@ -721,7 +721,7 @@ static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE*
     if (hTransform == NULL)
         return 0;
 
-    cmsDoTransform(hTransform, (void*) input, result, 3);
+    /*    cmsDoTransform(hTransform, (void*) input, result, 3); */
     cmsDeleteTransform(hTransform);
     return 1;
 }
