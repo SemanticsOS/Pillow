@@ -989,70 +989,6 @@ cms_profile_getattr_blue_colorant(CmsProfileObject* self, void* closure)
     return _profile_read_ciexyz(self, cmsSigBlueColorantTag, 0);
 }
 
-static PyObject*
-cms_profile_getattr_media_white_point_temperature(CmsProfileObject *self, void* closure)
-{
-    cmsCIEXYZ* XYZ;
-    cmsCIExyY xyY;
-    cmsFloat64Number tempK;
-    cmsTagSignature info = cmsSigMediaWhitePointTag;
-    cmsBool result;
-
-    if (!cmsIsTag(self->profile, info)) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-
-    XYZ = (cmsCIEXYZ*) cmsReadTag(self->profile, info);
-    if (!XYZ) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-    if (XYZ == NULL || XYZ->X == 0) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-
-    cmsXYZ2xyY(&xyY, XYZ);
-    result = cmsTempFromWhitePoint(&tempK, &xyY);
-    if (!result) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-    return PyFloat_FromDouble(tempK);
-}
-
-static PyObject*
-cms_profile_getattr_media_white_point(CmsProfileObject* self, void* closure)
-{
-    return _profile_read_ciexyz(self, cmsSigMediaWhitePointTag, 0);
-}
-
-
-static PyObject*
-cms_profile_getattr_media_black_point(CmsProfileObject* self, void* closure)
-{
-    return _profile_read_ciexyz(self, cmsSigMediaBlackPointTag, 0);
-}
-
-static PyObject*
-cms_profile_getattr_luminance(CmsProfileObject* self, void* closure)
-{
-    return _profile_read_ciexyz(self, cmsSigLuminanceTag, 0);
-}
-
-static PyObject*
-cms_profile_getattr_chromatic_adaptation(CmsProfileObject* self, void* closure)
-{
-    return _profile_read_ciexyz(self, cmsSigChromaticAdaptationTag, 1);
-}
-
-static PyObject*
-cms_profile_getattr_chromaticity(CmsProfileObject* self, void* closure)
-{
-    return _profile_read_ciexyz(self, cmsSigChromaticityTag, 0);
-}
-
 
 static PyObject*
 cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
@@ -1105,12 +1041,6 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "red_colorant",       (getter) cms_profile_getattr_red_colorant },
     { "green_colorant",     (getter) cms_profile_getattr_green_colorant },
     { "blue_colorant",      (getter) cms_profile_getattr_blue_colorant },
-    { "media_white_point_temperature", (getter) cms_profile_getattr_media_white_point_temperature },
-    { "media_white_point",  (getter) cms_profile_getattr_media_white_point },
-    { "media_black_point",  (getter) cms_profile_getattr_media_black_point },
-    { "luminance",          (getter) cms_profile_getattr_luminance },
-    { "chromatic_adaptation", (getter) cms_profile_getattr_chromatic_adaptation },
-    { "chromaticity",       (getter) cms_profile_getattr_chromaticity },
     { "colorant_table",     (getter) cms_profile_getattr_colorant_table },
     { "colorant_table_out", (getter) cms_profile_getattr_colorant_table_out },
 
