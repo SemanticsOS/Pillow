@@ -29,7 +29,6 @@ http://www.cazabon.com\n\
 
 #include "Python.h"
 #include "datetime.h"
-#include "pythread.h"
 
 #include "lcms2.h"
 #include "Imaging.h"
@@ -709,16 +708,15 @@ static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE*
     /* http://littlecms2.blogspot.com/2009/07/less-is-more.html */
 
     // double array of RGB values with max on each identitiy
-    hXYZ = cmsCreateXYZProfileTHR((cmsContext) PyThread_get_thread_ident());
+    hXYZ = cmsCreateXYZProfile();
     if (hXYZ == NULL)
         return 0;
 
     // transform from our profile to XYZ using doubles for highest precision
-    hTransform = cmsCreateTransformTHR((cmsContext) PyThread_get_thread_ident(),
-				       self->profile, TYPE_RGB_DBL,
-				       hXYZ, TYPE_XYZ_DBL,
-				       INTENT_RELATIVE_COLORIMETRIC,
-				       cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE);
+    hTransform = cmsCreateTransform(self->profile, TYPE_RGB_DBL,
+				    hXYZ, TYPE_XYZ_DBL,
+				    INTENT_RELATIVE_COLORIMETRIC,
+				    cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE);
     cmsCloseProfile(hXYZ);
     if (hTransform == NULL)
         return 0;
