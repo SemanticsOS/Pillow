@@ -25,7 +25,11 @@ kevin@cazabon.com\n\
 http://www.cazabon.com\n\
 "
 
+#include "wchar.h"
+
 #include "Python.h"
+#include "datetime.h"
+
 #include "lcms2.h"
 #include "Imaging.h"
 #include "py3.h"
@@ -711,6 +715,22 @@ cms_profile_getattr_viewing_condition(CmsProfileObject* self, void* closure)
     return _profile_read_mlu(self, cmsSigViewingCondDescTag);
 }
 
+static PyObject*
+cms_profile_getattr_creation_date(CmsProfileObject* self, void* closure)
+{
+    cmsBool result;
+    struct tm ct;
+
+    result = cmsGetHeaderCreationDateTime(self->profile, &ct);
+    if (! result) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return PyDateTime_FromDateAndTime(1900 + ct.tm_year, ct.tm_mon, ct.tm_mday,
+				      ct.tm_hour, ct.tm_min, ct.tm_sec, 0);
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -723,7 +743,7 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
 
     /* New style interfaces.  */
     { "rendering_intent",   (getter) cms_profile_getattr_rendering_intent },
-
+    { "creation_date",      (getter) cms_profile_getattr_creation_date },
     { "copyright",          (getter) cms_profile_getattr_copyright },
     { "target",             (getter) cms_profile_getattr_target },
     { "manufacturer",       (getter) cms_profile_getattr_manufacturer },
@@ -868,5 +888,6 @@ init_imagingcms(void)
 {
     PyObject *m = Py_InitModule("_imagingcms", pyCMSdll_methods);
     setup_module(m);
+    PyDateTime_IMPORT;
 }
 #endif
