@@ -29,6 +29,7 @@ http://www.cazabon.com\n\
 
 #include "Python.h"
 #include "datetime.h"
+#include "pythread.h"
 
 #include "lcms2.h"
 #include "Imaging.h"
@@ -699,6 +700,34 @@ _profile_read_named_color_list(CmsProfileObject* self, cmsTagSignature info)
     return result;
 }
 
+static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE* result)
+{
+    double input[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+    cmsHPROFILE hXYZ;
+    cmsHTRANSFORM hTransform;
+
+    /* http://littlecms2.blogspot.com/2009/07/less-is-more.html */
+
+    // double array of RGB values with max on each identitiy
+    hXYZ = cmsCreateXYZProfileTHR((cmsContext) PyThread_get_thread_ident());
+    if (hXYZ == NULL)
+        return 0;
+
+    // transform from our profile to XYZ using doubles for highest precision
+    hTransform = cmsCreateTransformTHR((cmsContext) PyThread_get_thread_ident(),
+				       self->profile, TYPE_RGB_DBL,
+				       hXYZ, TYPE_XYZ_DBL,
+				       INTENT_ABSOLUTE_COLORIMETRIC,
+				       cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE);
+    cmsCloseProfile(hXYZ);
+    if (hTransform == NULL)
+        return 0;
+
+    cmsDoTransform(hTransform, (void*) input, result, 3);
+    cmsDeleteTransform(hTransform);
+    return 1;
+}
+
 /* -------------------------------------------------------------------- */
 /* Python interface setup */
 
@@ -989,6 +1018,54 @@ cms_profile_getattr_blue_colorant(CmsProfileObject* self, void* closure)
 }
 
 static PyObject*
+cms_profile_getattr_red_primary(CmsProfileObject* self, void* closure)
+{
+    cmsBool result = 0;
+    cmsCIEXYZTRIPLE primaries;
+
+    if (cmsIsMatrixShaper(self->profile))
+        result = _calculate_rgb_primaries(self, &primaries);
+    if (! result) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return _xyz_py(&primaries.Red);
+}
+
+static PyObject*
+cms_profile_getattr_green_primary(CmsProfileObject* self, void* closure)
+{
+    cmsBool result = 0;
+    cmsCIEXYZTRIPLE primaries;
+
+    if (cmsIsMatrixShaper(self->profile))
+        result = _calculate_rgb_primaries(self, &primaries);
+    if (! result) {
+        Py_INCREF(Py_None);
+	return Py_None;
+    }
+
+    return _xyz_py(&primaries.Green);
+}
+
+static PyObject*
+cms_profile_getattr_blue_primary(CmsProfileObject* self, void* closure)
+{
+    cmsBool result = 0;
+    cmsCIEXYZTRIPLE primaries;
+
+    if (cmsIsMatrixShaper(self->profile))
+        result = _calculate_rgb_primaries(self, &primaries);
+    if (! result) {
+        Py_INCREF(Py_None);
+	return Py_None;
+    }
+
+    return _xyz_py(&primaries.Blue);
+}
+
+static PyObject*
 cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
 {
     return _profile_read_named_color_list(self, cmsSigColorantTableTag);
@@ -1038,6 +1115,9 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "red_colorant",       (getter) cms_profile_getattr_red_colorant },
     { "green_colorant",     (getter) cms_profile_getattr_green_colorant },
     { "blue_colorant",      (getter) cms_profile_getattr_blue_colorant },
+    { "red_primary",        (getter) cms_profile_getattr_red_primary },
+    { "green_primary",      (getter) cms_profile_getattr_green_primary },
+    { "blue_primary",       (getter) cms_profile_getattr_blue_primary },
     { "colorant_table",     (getter) cms_profile_getattr_colorant_table },
     { "colorant_table_out", (getter) cms_profile_getattr_colorant_table_out },
 
