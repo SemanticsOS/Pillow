@@ -699,33 +699,6 @@ _profile_read_named_color_list(CmsProfileObject* self, cmsTagSignature info)
     return result;
 }
 
-static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE* result)
-{
-  /* double input[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }; */
-    cmsHPROFILE hXYZ;
-    cmsHTRANSFORM hTransform;
-
-    /* http://littlecms2.blogspot.com/2009/07/less-is-more.html */
-
-    // double array of RGB values with max on each identitiy
-    hXYZ = cmsCreateXYZProfile();
-    if (hXYZ == NULL)
-        return 0;
-
-    // transform from our profile to XYZ using doubles for highest precision
-    hTransform = cmsCreateTransform(self->profile, TYPE_RGB_DBL,
-				    hXYZ, TYPE_XYZ_DBL,
-				    INTENT_RELATIVE_COLORIMETRIC,
-				    cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE);
-    cmsCloseProfile(hXYZ);
-    if (hTransform == NULL)
-        return 0;
-
-    /*    cmsDoTransform(hTransform, (void*) input, result, 3); */
-    cmsDeleteTransform(hTransform);
-    return 1;
-}
-
 static PyObject*
 _is_intent_supported(CmsProfileObject* self, int clut)
 {
@@ -1411,7 +1384,7 @@ PyInit__imagingcms(void) {
     if (setup_module(m) < 0)
         return NULL;
 
-    PyDateTime_IMPORT;
+    //    PyDateTime_IMPORT;
 
     return m;
 }
