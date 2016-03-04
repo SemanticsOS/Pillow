@@ -992,9 +992,7 @@ cms_profile_getattr_blue_colorant(CmsProfileObject* self, void* closure)
 static PyObject*
 cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
 {
-        Py_INCREF(Py_None);
-        return Py_None;
-	//    return _profile_read_named_color_list(self, cmsSigColorantTableTag);
+    return _profile_read_named_color_list(self, cmsSigColorantTableTag);
 }
 
 static PyObject*
