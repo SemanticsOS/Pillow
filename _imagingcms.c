@@ -1220,7 +1220,7 @@ cms_profile_getattr_icc_viewing_condition (CmsProfileObject* self, void* closure
         return Py_None;
     }
 
-    vc = (cmsICCMeasurementConditions*) cmsReadTag(self->profile, info);
+    vc = (cmsICCViewingConditions*) cmsReadTag(self->profile, info);
     if (!vc) {
         Py_INCREF(Py_None);
         return Py_None;
