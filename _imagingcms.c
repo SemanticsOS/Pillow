@@ -1463,6 +1463,8 @@ PyInit__imagingcms(void) {
     if (setup_module(m) < 0)
         return NULL;
 
+    PyDateTime_IMPORT;
+
     return m;
 }
 #else
