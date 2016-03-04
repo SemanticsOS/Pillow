@@ -684,18 +684,6 @@ _profile_read_named_color_list(CmsProfileObject* self, cmsTagSignature info)
         return Py_None;
     }
 
-    for (i = 0; i < n; i++) {
-        PyObject* str;
-        cmsNamedColorInfo(ncl, i, name, NULL, NULL, NULL, NULL);
-	str = PyString_FromString(name);
-	if (str == NULL) {
- 	    Py_DECREF(result);
-	    Py_INCREF(Py_None);
-	    return Py_None;
-	}
-        PyList_SET_ITEM(result, i, str);
-    }
-
     return result;
 }
 
