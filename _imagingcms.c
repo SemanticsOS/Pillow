@@ -1149,61 +1149,6 @@ _illu_map(int i)
     }
 }
 
-static PyObject*
-cms_profile_getattr_icc_measurement_condition (CmsProfileObject* self, void* closure)
-{
-    cmsICCMeasurementConditions* mc;
-    cmsTagSignature info = cmsSigMeasurementTag;
-    const char *geo;
-
-    if (!cmsIsTag(self->profile, info)) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-
-    mc = (cmsICCMeasurementConditions*) cmsReadTag(self->profile, info);
-    if (!mc) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-
-    if (mc->Geometry == 1)
-        geo = "45/0, 0/45";
-    else if (mc->Geometry == 2)
-        geo = "0d, d/0";
-    else
-        geo = "unknown";
-
-    return Py_BuildValue("{s:i,s:(ddd),s:s,s:d,s:s}",
-			 "observer", mc->Observer,
-			 "backing", mc->Backing.X, mc->Backing.Y, mc->Backing.Z,
-			 "geo", geo,
-			 "flare", mc->Flare,
-			 "illuminant_type", _illu_map(mc->IlluminantType));
-}
-
-static PyObject*
-cms_profile_getattr_icc_viewing_condition (CmsProfileObject* self, void* closure)
-{
-    cmsICCViewingConditions* vc;
-    cmsTagSignature info = cmsSigViewingConditionsTag;
-
-    if (!cmsIsTag(self->profile, info)) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-
-    vc = (cmsICCViewingConditions*) cmsReadTag(self->profile, info);
-    if (!vc) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-
-    return Py_BuildValue("{s:(ddd),s:(ddd),s:s}",
-			 "illuminant", vc->IlluminantXYZ.X, vc->IlluminantXYZ.Y, vc->IlluminantXYZ.Z,
-			 "surround", vc->SurroundXYZ.X, vc->SurroundXYZ.Y, vc->SurroundXYZ.Z,
-			 "illuminant_type", _illu_map(vc->IlluminantType));
-}
 
 
 /* FIXME: add more properties (creation_datetime etc) */
@@ -1254,8 +1199,7 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "colorant_table_out", (getter) cms_profile_getattr_colorant_table_out },
     { "intent_supported",   (getter) cms_profile_getattr_is_intent_supported },
     { "clut",               (getter) cms_profile_getattr_is_clut },
-    { "icc_measurement_condition", (getter) cms_profile_getattr_icc_measurement_condition },
-    { "icc_viewing_condition", (getter) cms_profile_getattr_icc_viewing_condition },
+
 
     { NULL }
 };
