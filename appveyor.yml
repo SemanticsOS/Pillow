@@ -5,12 +5,7 @@ init:
 environment:
   X64_EXT: -x64
   matrix:
-  - PYTHON: C:/Python27-x64
   - PYTHON: C:/Python34
-  - PYTHON: C:/Python27
-  - PYTHON: C:/Python34-x64
-  - PYTHON: C:/Python33
-  - PYTHON: C:/Python33-x64
 install:
 - git clone https://github.com/python-pillow/pillow-depends.git c:\pillow-depends
 - xcopy c:\pillow-depends\*.zip c:\pillow\winbuild\

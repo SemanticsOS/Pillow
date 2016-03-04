@@ -989,6 +989,22 @@ cms_profile_getattr_blue_colorant(CmsProfileObject* self, void* closure)
     return _profile_read_ciexyz(self, cmsSigBlueColorantTag, 0);
 }
 
+static PyObject*
+cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
+{
+        Py_INCREF(Py_None);
+        return Py_None;
+	//    return _profile_read_named_color_list(self, cmsSigColorantTableTag);
+}
+
+static PyObject*
+cms_profile_getattr_colorant_table_out(CmsProfileObject* self, void* closure)
+{
+        Py_INCREF(Py_None);
+        return Py_None;
+	//    return _profile_read_named_color_list(self, cmsSigColorantTableOutTag);
+}
+
 /* FIXME: add more properties (creation_datetime etc) */
 static struct PyGetSetDef cms_profile_getsetters[] = {
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
@@ -1027,6 +1043,8 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "red_colorant",       (getter) cms_profile_getattr_red_colorant },
     { "green_colorant",     (getter) cms_profile_getattr_green_colorant },
     { "blue_colorant",      (getter) cms_profile_getattr_blue_colorant },
+    { "colorant_table",     (getter) cms_profile_getattr_colorant_table },
+    { "colorant_table_out", (getter) cms_profile_getattr_colorant_table_out },
 
 
     { NULL }
