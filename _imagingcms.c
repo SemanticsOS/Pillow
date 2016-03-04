@@ -717,7 +717,7 @@ static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE*
     hTransform = cmsCreateTransformTHR((cmsContext) PyThread_get_thread_ident(),
 				       self->profile, TYPE_RGB_DBL,
 				       hXYZ, TYPE_XYZ_DBL,
-				       INTENT_ABSOLUTE_COLORIMETRIC,
+				       INTENT_RELATIVE_COLORIMETRIC,
 				       cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE);
     cmsCloseProfile(hXYZ);
     if (hTransform == NULL)
