@@ -735,35 +735,39 @@ static cmsBool _check_intent(int clut, cmsHPROFILE hProfile, cmsUInt32Number Int
     }
 }
 
+#define INTENTS 200
+
 static PyObject*
 _is_intent_supported(CmsProfileObject* self, int clut)
 {
     PyObject* result;
+    int n;
+    int i;
+    cmsUInt32Number intent_ids[INTENTS];
+    char *intent_descs[INTENTS];
+
     result = PyDict_New();
     if (result == NULL) {
         Py_INCREF(Py_None);
         return Py_None;
     }
 
-    #define INTENTS 200
-    int n, i;
-    int intent_ids[INTENTS];
-    char *intent_descs[INTENTS];
 
     n = cmsGetSupportedIntents(INTENTS,
-			       (cmsUInt32Number *) intent_ids,
+			       intent_ids,
 			       intent_descs);
     for (i = 0; i < n; i++) {
-        int intent = intent_ids[i];
+        int intent = (int) intent_ids[i];
+        PyObject* id;
+	PyObject* entry;
 
 	/* Only valid for ICC Intents (otherwise we read invalid memory in lcms cmsio1.c). */
 	if (!(intent == INTENT_PERCEPTUAL || intent == INTENT_RELATIVE_COLORIMETRIC
 	      || intent == INTENT_SATURATION || intent == INTENT_ABSOLUTE_COLORIMETRIC))
 	  continue;
 
-	PyObject* id = PyInt_FromLong(intent);
-	// PyObject* entry = PyString_FromString(intent_descs[i]);
-	PyObject* entry = Py_BuildValue("(OOO)",
+	id = PyInt_FromLong((long) intent);
+	entry = Py_BuildValue("(OOO)",
 					_check_intent(clut, self->profile, intent, LCMS_USED_AS_INPUT) ? Py_True : Py_False,
 					_check_intent(clut, self->profile, intent, LCMS_USED_AS_OUTPUT) ? Py_True : Py_False,
 					_check_intent(clut, self->profile, intent, LCMS_USED_AS_PROOF) ? Py_True : Py_False);
