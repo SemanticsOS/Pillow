@@ -725,51 +725,6 @@ static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE*
     return 1;
 }
 
-static PyObject*
-_is_intent_supported(CmsProfileObject* self, int clut)
-{
-    PyObject* result;
-    result = PyDict_New();
-    if (result == NULL) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-    cmsBool (*func) (cmsHPROFILE, cmsUInt32Number, cmsUInt32Number) = clut ? cmsIsCLUT : cmsIsIntentSupported;
-
-    #define INTENTS 200
-    int n, i;
-    int intent_ids[INTENTS];
-    char *intent_descs[INTENTS];
-
-    n = cmsGetSupportedIntents(INTENTS,
-			       (cmsUInt32Number *) intent_ids,
-			       intent_descs);
-    for (i = 0; i < n; i++) {
-        int intent = intent_ids[i];
-
-	/* Only valid for ICC Intents (otherwise we read invalid memory in lcms cmsio1.c). */
-	if (!(intent == INTENT_PERCEPTUAL || intent == INTENT_RELATIVE_COLORIMETRIC
-	      || intent == INTENT_SATURATION || intent == INTENT_ABSOLUTE_COLORIMETRIC))
-	  continue;
-
-	PyObject* id = PyInt_FromLong(intent);
-	// PyObject* entry = PyString_FromString(intent_descs[i]);
-	PyObject* entry = Py_BuildValue("(OOO)",
-					func(self->profile, intent, LCMS_USED_AS_INPUT) ? Py_True : Py_False,
-					func(self->profile, intent, LCMS_USED_AS_OUTPUT) ? Py_True : Py_False,
-					func(self->profile, intent, LCMS_USED_AS_PROOF) ? Py_True : Py_False);
-	if (id == NULL || entry == NULL) {
-  	    Py_XDECREF(id);
-	    Py_XDECREF(entry);
-	    Py_XDECREF(result);
-	    Py_INCREF(Py_None);
-	    return Py_None;
-	}
-	PyDict_SetItem(result, id, entry);
-    }
-    return result;
-}
-
 /* -------------------------------------------------------------------- */
 /* Python interface setup */
 
@@ -1183,18 +1138,6 @@ cms_profile_getattr_colorant_table_out(CmsProfileObject* self, void* closure)
     return _profile_read_named_color_list(self, cmsSigColorantTableOutTag);
 }
 
-static PyObject*
-cms_profile_getattr_is_intent_supported (CmsProfileObject* self, void* closure)
-{
-    return _is_intent_supported(self, 0);
-}
-
-static PyObject*
-cms_profile_getattr_is_clut (CmsProfileObject* self, void* closure)
-{
-    return _is_intent_supported(self, 1);
-}
-
 
 static struct PyGetSetDef cms_profile_getsetters[] = {
     /* Compatibility interfaces.  */
@@ -1246,8 +1189,6 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "chromaticity",       (getter) cms_profile_getattr_chromaticity },
     { "colorant_table",     (getter) cms_profile_getattr_colorant_table },
     { "colorant_table_out", (getter) cms_profile_getattr_colorant_table_out },
-    { "intent_supported",   (getter) cms_profile_getattr_is_intent_supported },
-    { "clut",               (getter) cms_profile_getattr_is_clut },
     { NULL }
 };
 
