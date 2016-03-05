@@ -725,10 +725,10 @@ static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE*
     return 1;
 }
 
-static _check_intent(int clut, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number UsedDirection)
+static cmsBool _check_intent(int clut, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number UsedDirection)
 {
     if (clut) {
-        return cmsIsClut(hProfile, Intent, UsedDirection);
+        return cmsIsCLUT(hProfile, Intent, UsedDirection);
     }
     else {
         return cmsIsIntentSupported(hProfile, Intent, UsedDirection);
