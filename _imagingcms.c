@@ -611,7 +611,6 @@ _profile_read_signature(CmsProfileObject* self, cmsTagSignature info)
     return _profile_read_int_as_string(*sig);
 }
 
-
 static PyObject*
 _xyz_py(cmsCIEXYZ* XYZ)
 {
@@ -699,6 +698,77 @@ _profile_read_named_color_list(CmsProfileObject* self, cmsTagSignature info)
     return result;
 }
 
+static cmsBool _calculate_rgb_primaries(CmsProfileObject* self, cmsCIEXYZTRIPLE* result)
+{
+    double input[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+    cmsHPROFILE hXYZ;
+    cmsHTRANSFORM hTransform;
+
+    /* http://littlecms2.blogspot.com/2009/07/less-is-more.html */
+
+    // double array of RGB values with max on each identitiy
+    hXYZ = cmsCreateXYZProfile();
+    if (hXYZ == NULL)
+        return 0;
+
+    // transform from our profile to XYZ using doubles for highest precision
+    hTransform = cmsCreateTransform(self->profile, TYPE_RGB_DBL,
+				    hXYZ, TYPE_XYZ_DBL,
+				    INTENT_RELATIVE_COLORIMETRIC,
+				    cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE);
+    cmsCloseProfile(hXYZ);
+    if (hTransform == NULL)
+        return 0;
+
+    cmsDoTransform(hTransform, (void*) input, result, 3);
+    cmsDeleteTransform(hTransform);
+    return 1;
+}
+
+static PyObject*
+_is_intent_supported(CmsProfileObject* self, int clut)
+{
+    PyObject* result;
+    result = PyDict_New();
+    if (result == NULL) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    cmsBool (*func) (cmsHPROFILE, cmsUInt32Number, cmsUInt32Number) = clut ? cmsIsCLUT : cmsIsIntentSupported;
+
+    #define INTENTS 200
+    int n, i;
+    int intent_ids[INTENTS];
+    char *intent_descs[INTENTS];
+
+    n = cmsGetSupportedIntents(INTENTS,
+			       (cmsUInt32Number *) intent_ids,
+			       intent_descs);
+    for (i = 0; i < n; i++) {
+        int intent = intent_ids[i];
+
+	/* Only valid for ICC Intents (otherwise we read invalid memory in lcms cmsio1.c). */
+	if (!(intent == INTENT_PERCEPTUAL || intent == INTENT_RELATIVE_COLORIMETRIC
+	      || intent == INTENT_SATURATION || intent == INTENT_ABSOLUTE_COLORIMETRIC))
+	  continue;
+
+	PyObject* id = PyInt_FromLong(intent);
+	// PyObject* entry = PyString_FromString(intent_descs[i]);
+	PyObject* entry = Py_BuildValue("(OOO)",
+					func(self->profile, intent, LCMS_USED_AS_INPUT) ? Py_True : Py_False,
+					func(self->profile, intent, LCMS_USED_AS_OUTPUT) ? Py_True : Py_False,
+					func(self->profile, intent, LCMS_USED_AS_PROOF) ? Py_True : Py_False);
+	if (id == NULL || entry == NULL) {
+  	    Py_XDECREF(id);
+	    Py_XDECREF(entry);
+	    Py_XDECREF(result);
+	    Py_INCREF(Py_None);
+	    return Py_None;
+	}
+	PyDict_SetItem(result, id, entry);
+    }
+    return result;
+}
 
 /* -------------------------------------------------------------------- */
 /* Python interface setup */
@@ -990,6 +1060,118 @@ cms_profile_getattr_blue_colorant(CmsProfileObject* self, void* closure)
 }
 
 static PyObject*
+cms_profile_getattr_media_white_point_temperature(CmsProfileObject *self, void* closure)
+{
+    cmsCIEXYZ* XYZ;
+    cmsCIExyY xyY;
+    cmsFloat64Number tempK;
+    cmsTagSignature info = cmsSigMediaWhitePointTag;
+    cmsBool result;
+
+    if (!cmsIsTag(self->profile, info)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    XYZ = (cmsCIEXYZ*) cmsReadTag(self->profile, info);
+    if (!XYZ) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    if (XYZ == NULL || XYZ->X == 0) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    cmsXYZ2xyY(&xyY, XYZ);
+    result = cmsTempFromWhitePoint(&tempK, &xyY);
+    if (!result) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    return PyFloat_FromDouble(tempK);
+}
+
+static PyObject*
+cms_profile_getattr_media_white_point(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_ciexyz(self, cmsSigMediaWhitePointTag, 0);
+}
+
+
+static PyObject*
+cms_profile_getattr_media_black_point(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_ciexyz(self, cmsSigMediaBlackPointTag, 0);
+}
+
+static PyObject*
+cms_profile_getattr_luminance(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_ciexyz(self, cmsSigLuminanceTag, 0);
+}
+
+static PyObject*
+cms_profile_getattr_chromatic_adaptation(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_ciexyz(self, cmsSigChromaticAdaptationTag, 1);
+}
+
+static PyObject*
+cms_profile_getattr_chromaticity(CmsProfileObject* self, void* closure)
+{
+    return _profile_read_ciexyz(self, cmsSigChromaticityTag, 0);
+}
+
+static PyObject*
+cms_profile_getattr_red_primary(CmsProfileObject* self, void* closure)
+{
+    cmsBool result = 0;
+    cmsCIEXYZTRIPLE primaries;
+
+    if (cmsIsMatrixShaper(self->profile))
+        result = _calculate_rgb_primaries(self, &primaries);
+    if (! result) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return _xyz_py(&primaries.Red);
+}
+
+static PyObject*
+cms_profile_getattr_green_primary(CmsProfileObject* self, void* closure)
+{
+    cmsBool result = 0;
+    cmsCIEXYZTRIPLE primaries;
+
+    if (cmsIsMatrixShaper(self->profile))
+        result = _calculate_rgb_primaries(self, &primaries);
+    if (! result) {
+        Py_INCREF(Py_None);
+	return Py_None;
+    }
+
+    return _xyz_py(&primaries.Green);
+}
+
+static PyObject*
+cms_profile_getattr_blue_primary(CmsProfileObject* self, void* closure)
+{
+    cmsBool result = 0;
+    cmsCIEXYZTRIPLE primaries;
+
+    if (cmsIsMatrixShaper(self->profile))
+        result = _calculate_rgb_primaries(self, &primaries);
+    if (! result) {
+        Py_INCREF(Py_None);
+	return Py_None;
+    }
+
+    return _xyz_py(&primaries.Blue);
+}
+
+static PyObject*
 cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
 {
     return _profile_read_named_color_list(self, cmsSigColorantTableTag);
@@ -998,11 +1180,107 @@ cms_profile_getattr_colorant_table(CmsProfileObject* self, void* closure)
 static PyObject*
 cms_profile_getattr_colorant_table_out(CmsProfileObject* self, void* closure)
 {
-  return _profile_read_named_color_list(self, cmsSigColorantTableOutTag);
+    return _profile_read_named_color_list(self, cmsSigColorantTableOutTag);
 }
 
-/* FIXME: add more properties (creation_datetime etc) */
+static PyObject*
+cms_profile_getattr_is_intent_supported (CmsProfileObject* self, void* closure)
+{
+    return _is_intent_supported(self, 0);
+}
+
+static PyObject*
+cms_profile_getattr_is_clut (CmsProfileObject* self, void* closure)
+{
+    return _is_intent_supported(self, 1);
+}
+
+static const char*
+_illu_map(int i)
+{
+    switch(i) {
+    case 0:
+        return "unknown";
+    case 1:
+        return "D50";
+    case 2:
+        return "D65";
+    case 3:
+        return "D93";
+    case 4:
+        return "F2";
+    case 5:
+        return "D55";
+    case 6:
+        return "A";
+    case 7:
+        return "E";
+    case 8:
+        return "F8";
+    default:
+        return NULL;
+    }
+}
+
+static PyObject*
+cms_profile_getattr_icc_measurement_condition (CmsProfileObject* self, void* closure)
+{
+    cmsICCMeasurementConditions* mc;
+    cmsTagSignature info = cmsSigMeasurementTag;
+    const char *geo;
+
+    if (!cmsIsTag(self->profile, info)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    mc = (cmsICCMeasurementConditions*) cmsReadTag(self->profile, info);
+    if (!mc) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    if (mc->Geometry == 1)
+        geo = "45/0, 0/45";
+    else if (mc->Geometry == 2)
+        geo = "0d, d/0";
+    else
+        geo = "unknown";
+
+    return Py_BuildValue("{s:i,s:(ddd),s:s,s:d,s:s}",
+			 "observer", mc->Observer,
+			 "backing", mc->Backing.X, mc->Backing.Y, mc->Backing.Z,
+			 "geo", geo,
+			 "flare", mc->Flare,
+			 "illuminant_type", _illu_map(mc->IlluminantType));
+}
+
+static PyObject*
+cms_profile_getattr_icc_viewing_condition (CmsProfileObject* self, void* closure)
+{
+    cmsICCViewingConditions* vc;
+    cmsTagSignature info = cmsSigViewingConditionsTag;
+
+    if (!cmsIsTag(self->profile, info)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    vc = (cmsICCViewingConditions*) cmsReadTag(self->profile, info);
+    if (!vc) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return Py_BuildValue("{s:(ddd),s:(ddd),s:s}",
+			 "illuminant", vc->IlluminantXYZ.X, vc->IlluminantXYZ.Y, vc->IlluminantXYZ.Z,
+			 "surround", vc->SurroundXYZ.X, vc->SurroundXYZ.Y, vc->SurroundXYZ.Z,
+			 "illuminant_type", _illu_map(vc->IlluminantType));
+}
+
+
 static struct PyGetSetDef cms_profile_getsetters[] = {
+    /* Compatibility interfaces.  */
     { "product_desc",       (getter) cms_profile_getattr_product_desc },
     { "product_description", (getter) cms_profile_getattr_product_description },
     { "product_manufacturer", (getter) cms_profile_getattr_product_manufacturer },
@@ -1029,6 +1307,7 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "header_model",       (getter) cms_profile_getattr_header_model },
     { "device_class",       (getter) cms_profile_getattr_device_class },
     { "connection_space",   (getter) cms_profile_getattr_connection_space },
+    /* Similar to color_space, but with full 4-letter signature (including trailing whitespace).  */
     { "xcolor_space",       (getter) cms_profile_getattr_xcolor_space },
     { "profile_id",         (getter) cms_profile_getattr_profile_id },
     { "is_matrix_shaper",   (getter) cms_profile_getattr_is_matrix_shaper },
@@ -1039,12 +1318,24 @@ static struct PyGetSetDef cms_profile_getsetters[] = {
     { "red_colorant",       (getter) cms_profile_getattr_red_colorant },
     { "green_colorant",     (getter) cms_profile_getattr_green_colorant },
     { "blue_colorant",      (getter) cms_profile_getattr_blue_colorant },
+    { "red_primary",        (getter) cms_profile_getattr_red_primary },
+    { "green_primary",      (getter) cms_profile_getattr_green_primary },
+    { "blue_primary",       (getter) cms_profile_getattr_blue_primary },
+    { "media_white_point_temperature", (getter) cms_profile_getattr_media_white_point_temperature },
+    { "media_white_point",  (getter) cms_profile_getattr_media_white_point },
+    { "media_black_point",  (getter) cms_profile_getattr_media_black_point },
+    { "luminance",          (getter) cms_profile_getattr_luminance },
+    { "chromatic_adaptation", (getter) cms_profile_getattr_chromatic_adaptation },
+    { "chromaticity",       (getter) cms_profile_getattr_chromaticity },
     { "colorant_table",     (getter) cms_profile_getattr_colorant_table },
     { "colorant_table_out", (getter) cms_profile_getattr_colorant_table_out },
-
-
+    { "intent_supported",   (getter) cms_profile_getattr_is_intent_supported },
+    { "clut",               (getter) cms_profile_getattr_is_clut },
+    { "icc_measurement_condition", (getter) cms_profile_getattr_icc_measurement_condition },
+    { "icc_viewing_condition", (getter) cms_profile_getattr_icc_viewing_condition },
     { NULL }
 };
+
 
 static PyTypeObject CmsProfile_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -1170,7 +1461,7 @@ PyInit__imagingcms(void) {
     if (setup_module(m) < 0)
         return NULL;
 
-     //    PyDateTime_IMPORT;
+    PyDateTime_IMPORT;
 
     return m;
 }
